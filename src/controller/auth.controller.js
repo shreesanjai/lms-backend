@@ -1,4 +1,4 @@
-const { getUserByUsername } = require("../model/employeeModel")
+const { getUserByUsername, getUserById } = require("../model/employeeModel")
 const { generateToken } = require("../utils/generateToken")
 const { sendError, sendSuccess } = require("../utils/responses")
 
@@ -21,12 +21,17 @@ const login = async (req, res) => {
             id: user.id,
             username: user.username,
             role: user.role,
+            name: user.name
         })
 
         return sendSuccess(res, {
-            username: user.username,
-            token: token,
-            message: "Authenticated User"
+            token, user: {
+                id: user.id,
+                name: user.name,
+                username: user.username,
+                role: user.role,
+
+            }
         })
 
     } catch (error) {
@@ -34,6 +39,24 @@ const login = async (req, res) => {
     }
 }
 
-module.exports = { login }
+const getProfile = async (req, res) => {
+    const id = req.user.id;
+
+    try {
+        const user = await getUserById(id);
+
+        if (!user)
+            return sendError(res, "User not found", 400)
+
+        return sendSuccess(res, { user })
+
+    } catch (error) {
+        return sendError(res, "Internal Server Error", 500, error)
+    }
+
+
+}
+
+module.exports = { login, getProfile }
 
 

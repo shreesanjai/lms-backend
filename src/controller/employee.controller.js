@@ -11,9 +11,9 @@ const { sendError, sendSuccess } = require("../utils/responses");
 
 const newUser = async (req, res) => {
 
-    const { username, password, role, reporting_manager_id } = req.body;
+    const { username, password, role, reporting_manager_id, name, department } = req.body;
 
-    if (!(req.user.role === "HR" || req.user.role === "admin"))
+    if (!(req.user.role === "HR" || req.user.role === "Admin"))
         return sendError(res, "Authorization Error", 401)
 
     try {
@@ -22,6 +22,8 @@ const newUser = async (req, res) => {
 
         await createUser({
             username: username,
+            name: name,
+            department: department,
             password: password,
             role: role,
             reporting_manager_id: reporting_manager_id

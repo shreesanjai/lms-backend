@@ -4,6 +4,8 @@
 const express = require("express");
 const authRoute = require('./routes/auth.route')
 const userRoute = require('./routes/employee.route')
+const leaveRoute = require('./routes/leave.route')
+const policyRoute = require('./routes/policy.route')
 
 const dotenv = require('dotenv')
 const cors = require('cors');
@@ -35,6 +37,8 @@ app.use(errorHandler);
 // Routes
 app.use('/api/auth', authRoute)
 app.use('/api/user', userRoute)
+app.use('/api/leave-requests', leaveRoute)
+app.use('/api/policy', policyRoute)
 
 
 
