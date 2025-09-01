@@ -1,6 +1,8 @@
 const { sendSuccess, sendError } = require("../utils/responses")
-const { getPendingLeaveRequestByUserId, createLeaveRequest } = require("../model/LeaveModel")
-const { getHolidayOnRange } = require("../model/HolidayModel")
+const { getPendingLeaveRequestByUserId, createLeaveRequest, myUserPendingRequests, statusUpdate, getAvailability, leaveAvailabilityUpdate } = require("../model/LeaveModel")
+const { getHolidayOnRange, getFloaterOnRange } = require("../model/HolidayModel")
+const { LEAVE_STATUS } = require('../utils/constants.js')
+const { response } = require("express")
 
 const getMyPendingRequests = async (req, res) => {
     try {
@@ -9,7 +11,7 @@ const getMyPendingRequests = async (req, res) => {
         return sendSuccess(res, { data: data })
 
     } catch (error) {
-        return sendError(res, "Internal Server Error", 500)
+        return sendError(res, error.message, 500)
     }
 }
 
@@ -17,9 +19,10 @@ const newLeaveRequest = async (req, res) => {
 
     try {
         const { startDate, endDate, no_of_days, policy_id, notes } = req.body
+        const id = req.user.id;
 
         const resp = await createLeaveRequest({
-            employee_id: req.user.id,
+            employee_id: id,
             startDate,
             endDate,
             no_of_days,
@@ -27,10 +30,18 @@ const newLeaveRequest = async (req, res) => {
             notes
         })
 
-        return sendSuccess(res, { message: "Leave Request Created", id: resp.id })
+        const currentAvail = (await getAvailability(id, policy_id)).availability
+
+        const updatedAvailability = Number(currentAvail) - Number(no_of_days);
+
+        const response = await leaveAvailabilityUpdate(id, policy_id, updatedAvailability);
+
+        if (resp && response)
+            return sendSuccess(res, { message: "Leave Request Created", id: resp.id })
+
 
     } catch (error) {
-        return sendError(res, "Internal Server Error", 500)
+        return sendError(res, error.message, 500)
     }
 }
 
@@ -76,8 +87,99 @@ const getWorkingDaysWithinRange = async (req, res) => {
             },
         });
     } catch (error) {
-        return sendError(res, "Internal Server Error", 500);
+        return sendError(res, error.message, 500);
     }
 };
 
-module.exports = { getMyPendingRequests, newLeaveRequest, getWorkingDaysWithinRange }
+const isFloaterOnRange = async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
+
+        const start = new Date(startDate);
+        const end = new Date(endDate)
+
+        const data = await getFloaterOnRange({
+            startDate: start,
+            endDate: end
+        })
+
+        return sendSuccess(res, { data })
+    } catch (error) {
+        return sendError(res, error.message, 500)
+    }
+}
+
+const myUsersPendingRequests = async (req, res) => {
+
+    try {
+        const id = req.user.id;
+        const response = await myUserPendingRequests(id);
+
+        return sendSuccess(res, { data: response })
+    } catch (error) {
+
+    }
+}
+
+const approveRequest = async (req, res) => {
+    const { id: leave_request_id } = req.query
+    try {
+        const resp = await statusUpdate(leave_request_id, LEAVE_STATUS.APPROVED)
+
+        return sendSuccess(res, { data: resp })
+    } catch (error) {
+        return sendError(res, error.message, 500)
+    }
+}
+
+const rejectRequest = async (req, res) => {
+    const { id } = req.query
+    try {
+
+        const response = await statusUpdate(id, LEAVE_STATUS.REJECTED);
+
+        const employee_id = response.employee_id;
+        const policy_id = response.policy_id;
+
+        const getAvail = (await getAvailability(employee_id, policy_id)).availability;
+
+        const resp = await leaveAvailabilityUpdate(employee_id, policy_id, Number(response.no_of_days) + Number(getAvail))
+
+        if (resp && getAvail && response)
+            return sendSuccess(res, { data: response })
+    } catch (error) {
+        return sendError(res, error.message, 500)
+    }
+}
+
+const cancelRequest = async (req, res) => {
+    const { id } = req.query
+    try {
+
+        const response = await statusUpdate(id, LEAVE_STATUS.CANCELLED);
+
+        const employee_id = response.employee_id;
+        const policy_id = response.policy_id;
+
+        const getAvail = (await getAvailability(employee_id, policy_id)).availability;
+
+        const resp = await leaveAvailabilityUpdate(employee_id, policy_id, Number(response.no_of_days) + Number(getAvail))
+
+        if (resp && getAvail && response)
+            return sendSuccess(res, { data: response })
+
+    } catch (error) {
+        return sendError(res, error.message, 500)
+    }
+}
+
+module.exports = {
+    getMyPendingRequests,
+    newLeaveRequest,
+    getWorkingDaysWithinRange,
+    isFloaterOnRange,
+    myUsersPendingRequests,
+    approveRequest,
+    rejectRequest,
+    cancelRequest
+}

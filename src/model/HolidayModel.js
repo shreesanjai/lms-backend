@@ -2,8 +2,13 @@
 const { pool } = require('../config/db')
 
 const getHolidayOnRange = async (range) => {
-    const res = await pool.query("SELECT * FROM holiday WHERE date BETWEEN $1 AND $2", [range.startDate, range.endDate])
+    const res = await pool.query("SELECT * FROM holiday WHERE is_floater != true AND date BETWEEN $1 AND $2", [range.startDate, range.endDate])
     return res.rows
 }
 
-module.exports = { getHolidayOnRange }
+const getFloaterOnRange = async (range) => {
+    const res = await pool.query("SELECT date,is_floater from holiday WHERE is_floater = true AND date BETWEEN $1 AND $2", [range.startDate, range.endDate])
+    return res.rows
+}
+
+module.exports = { getHolidayOnRange, getFloaterOnRange }

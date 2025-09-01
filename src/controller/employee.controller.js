@@ -48,7 +48,7 @@ const allUsers = async (req, res) => {
         return sendSuccess(res, { data: result })
 
     } catch (error) {
-        return sendError(res, "Internal Server Error", 500, error)
+        return sendError(res, error.message, 500)
     }
 
 }
@@ -59,7 +59,7 @@ const getAllMyUsers = async (req, res) => {
 
         return sendSuccess(res, { data: result })
     } catch (error) {
-        return sendError(res, "Internal Server Error", 500, error)
+        return sendError(res, error.message, 500)
     }
 }
 
@@ -76,7 +76,7 @@ const searchUsers = async (req, res) => {
         return sendSuccess(res, { suggestions: result })
 
     } catch (error) {
-        return sendError(res, "Internal Server Error", 400, error)
+        return sendError(res, error.message, 400)
     }
 }
 

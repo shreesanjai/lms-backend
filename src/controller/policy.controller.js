@@ -8,7 +8,7 @@ const getPolicyNames = async (req, res) => {
         const response = await getAllPolicybyUserId(id);
         return sendSuccess(res, { data: response })
     } catch (error) {
-        return sendError(res, "Internal Server Error", 500)
+        return sendError(res, error.message, 500)
     }
 }
 

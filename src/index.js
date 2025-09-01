@@ -40,11 +40,7 @@ app.use('/api/user', userRoute)
 app.use('/api/leave-requests', leaveRoute)
 app.use('/api/policy', policyRoute)
 
-
-
-
 const PORT = process.env.SERVER_PORT || 3000
 app.listen(PORT, () => {
     console.log(`Server running in PORT : ${PORT}`);
-
 });

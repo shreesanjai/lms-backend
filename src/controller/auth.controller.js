@@ -21,7 +21,8 @@ const login = async (req, res) => {
             id: user.id,
             username: user.username,
             role: user.role,
-            name: user.name
+            name: user.name,
+            department: user.department
         })
 
         return sendSuccess(res, {
@@ -30,12 +31,12 @@ const login = async (req, res) => {
                 name: user.name,
                 username: user.username,
                 role: user.role,
-
+                department: user.department
             }
         })
 
     } catch (error) {
-        return sendError(res, "Internal Server Error", 500, error)
+        return sendError(res, error.message, 500)
     }
 }
 
@@ -51,7 +52,7 @@ const getProfile = async (req, res) => {
         return sendSuccess(res, { user })
 
     } catch (error) {
-        return sendError(res, "Internal Server Error", 500, error)
+        return sendError(res, error.message, 500)
     }
 
 

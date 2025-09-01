@@ -11,7 +11,7 @@ const getAllUsers = async () => {
 // Get user by ID
 const getUserByUsername = async (id) => {
 
-    const result = await pool.query("SELECT id,username,name,role,password FROM employee WHERE username = $1", [id]);
+    const result = await pool.query("SELECT id,username,name,role,password,department FROM employee WHERE username = $1", [id]);
     return result.rows[0];
 };
 
