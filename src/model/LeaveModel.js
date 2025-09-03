@@ -21,6 +21,8 @@ const getPendingLeaveRequestByUserId = async (id) => {
     const res = await pool.query(` 
     SELECT 
             l.*,
+            to_char(l.startdate::timestamptz AT TIME ZONE 'Asia/Calcutta', 'YYYY-MM-DD') AS startdate,
+            to_char(l.enddate::timestamptz AT TIME ZONE 'Asia/Calcutta', 'YYYY-MM-DD') AS enddate,
             e.name AS employee_name,
             e.username AS employee_username,
             m.name AS manager_name,
@@ -42,6 +44,8 @@ const myUserPendingRequests = async (id) => {
     const res = await pool.query(`
        SELECT 
             lr.*,
+            to_char(lr.startdate::timestamptz AT TIME ZONE 'Asia/Calcutta', 'YYYY-MM-DD') AS startdate,
+            to_char(lr.enddate::timestamptz AT TIME ZONE 'Asia/Calcutta', 'YYYY-MM-DD') AS enddate,
             p.leavename,
             e.name,
             e.username
@@ -59,16 +63,18 @@ const myUserPendingRequests = async (id) => {
     return res.rows
 }
 
-const statusUpdate = async (id, status) => {
+const statusUpdate = async (id, status, data) => {
     const res = await pool.query(`
         UPDATE 
             leave_request
         SET 
-            status = $2
+            status = $2,
+            reject_cancel_reason = $3,
+            statusupdate_at = NOW()
         WHERE
             id = $1 
         RETURNING *
-            `, [id, status])
+            `, [id, status, data])
     return res.rows[0]
 }
 
@@ -97,6 +103,29 @@ const getAvailability = async (employee_id, policy_id) => {
     return resp.rows[0]
 }
 
+const getLeaveRequestByEmployeeId = async (employee_id) => {
+    const resp = await pool.query(`
+        SELECT 
+            lr.*,
+            to_char(lr.startdate::timestamptz AT TIME ZONE 'Asia/Calcutta', 'YYYY-MM-DD') AS startdate,
+            to_char(lr.enddate::timestamptz AT TIME ZONE 'Asia/Calcutta', 'YYYY-MM-DD') AS enddate,
+            p.leavename,
+            e.name,
+            m.name as approver
+        FROM 
+            leave_request lr
+        LEFT JOIN 
+            policy p ON lr.policy_id = p.id
+        LEFT JOIN
+            employee e ON e.id = lr.employee_id
+        LEFT JOIN 
+            employee m ON e.reporting_manager_id = m.id
+        WHERE 
+            lr.employee_id = $1;
+        `, [employee_id])
+
+    return resp.rows
+}
 
 module.exports = {
     getPendingLeaveRequestByUserId,
@@ -104,5 +133,6 @@ module.exports = {
     myUserPendingRequests,
     statusUpdate,
     leaveAvailabilityUpdate,
-    getAvailability
+    getAvailability,
+    getLeaveRequestByEmployeeId
 };

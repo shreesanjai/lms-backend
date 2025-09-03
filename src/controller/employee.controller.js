@@ -3,7 +3,9 @@ const {
     createUser,
     getAllUsers,
     getUserByManagerId,
-    searchUsersQuery
+    searchUsersQuery,
+    getUserById,
+    updateUser
 } = require("../model/employeeModel");
 
 const { sendError, sendSuccess } = require("../utils/responses");
@@ -42,10 +44,17 @@ const newUser = async (req, res) => {
 
 const allUsers = async (req, res) => {
 
-    try {
-        const result = await getAllUsers();
+    const { id } = req.query;
 
-        return sendSuccess(res, { data: result })
+    try {
+        if (!id) {
+            const result = await getAllUsers();
+            return sendSuccess(res, { data: result })
+        } else {
+            const resp = await getUserById(id);
+            if (resp)
+                return sendSuccess(res, resp)
+        }
 
     } catch (error) {
         return sendError(res, error.message, 500)
@@ -73,10 +82,43 @@ const searchUsers = async (req, res) => {
 
         const result = await searchUsersQuery(query)
 
-        return sendSuccess(res, { suggestions: result })
+        const resp = result.filter(item => item.department !== "ADMIN")
+
+        return sendSuccess(res, { suggestions: resp })
 
     } catch (error) {
         return sendError(res, error.message, 400)
+    }
+}
+
+const modifyUser = async (req, res) => {
+
+    const { id, username, password, role, reporting_manager_id, name, department } = req.body;
+
+
+    if (req.user.role !== "Admin")
+        return sendError(res, "Authorization Error", 401)
+
+    try {
+
+        await updateUser({
+            id: id,
+            username: username,
+            name: name,
+            department: department,
+            password: password,
+            role: role,
+            reporting_manager_id: reporting_manager_id
+        })
+
+        return sendSuccess(res, {
+            message: "User Updated",
+            username: username,
+            role: role
+        })
+
+    } catch (error) {
+        return sendError(res, "Error occured", 400, error)
     }
 }
 
@@ -84,5 +126,6 @@ module.exports = {
     newUser,
     allUsers,
     getAllMyUsers,
-    searchUsers
+    searchUsers,
+    modifyUser,
 };

@@ -34,7 +34,13 @@ const getUserByManagerId = async (id) => {
 // Search User
 const searchUsersQuery = async (text) => {
     const result = await pool.query(`
-        SELECT id, username,name,role
+        SELECT 
+            id, 
+            username,
+            name,
+            role,
+            department,
+            reporting_manager_id
         FROM employee
         WHERE username ILIKE $1
         LIMIT 10
@@ -50,6 +56,44 @@ const getUserById = async (id) => {
     return result.rows[0]
 }
 
+const updateUser = async (user) => {
+    const fields = [
+        "name = $1",
+        "username = $2",
+        "role = $3",
+        "department = $4",
+        "reporting_manager_id = $5"
+    ];
+
+    const values = [
+        user.name,
+        user.username,
+        user.role,
+        user.department,
+        user.reporting_manager_id
+    ];
+
+    let paramIndex = values.length + 1;
+
+    if (user.password && user.password.trim() !== "") {
+        fields.push(`password = $${paramIndex}`);
+        values.push(user.password);
+        paramIndex++;
+    }
+
+    values.push(user.id);
+
+    const query = `
+    UPDATE employee 
+    SET ${fields.join(", ")}
+    WHERE id = $${paramIndex}
+    RETURNING *
+  `;
+
+    const result = await pool.query(query, values);
+    return result.rows;
+};
+
 
 module.exports = {
     getAllUsers,
@@ -57,7 +101,8 @@ module.exports = {
     createUser,
     getUserByManagerId,
     searchUsersQuery,
-    getUserById
+    getUserById,
+    updateUser
 }
 
 

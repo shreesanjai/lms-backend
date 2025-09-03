@@ -1,19 +1,43 @@
 const { Pool } = require("pg");
-
-const dotenv = require('dotenv')
+const dotenv = require("dotenv");
 dotenv.config();
 
-const pool = new Pool({
-    host: process.env.PG_HOST,
-    port: process.env.PG_PORT,
-    database: process.env.PG_DATABASE,
-    user: process.env.PG_USER,
-    password: process.env.PG_PASSWORD,
+let pool;
 
-});
+function createPool() {
+    pool = new Pool({
+        host: process.env.PG_HOST,
+        port: process.env.PG_PORT,
+        database: process.env.PG_DATABASE,
+        user: process.env.PG_USER,
+        password: process.env.PG_PASSWORD,
+        idleTimeoutMillis: 30000, // close idle clients after 30s
+        connectionTimeoutMillis: 5000, // timeout if can’t connect in 5s
+    });
 
-pool.connect()
-    .then(() => console.log("Connected to "+process.env.PG_HOST))
-    .catch((err) => console.log("Not Connected : ", err))
+    pool.on("connect", () => {
+        console.log("Connected to " + process.env.PG_HOST + " " + new Date());
+    });
 
-module.exports = {pool};
+    pool.on("error", (err) => {
+        console.error("Unexpected DB error:", err);
+
+        if (err.code === "ECONNRESET" || err.code === "57P01" || err.code === "ENOTFOUND") {
+            console.log("Reconnecting...");
+            recreatePool();
+        }
+    });
+}
+
+function recreatePool() {
+    console.log("Recreate Pool");
+
+    pool.end().catch(() => { });
+    setTimeout(() => {
+        createPool();
+    }, 3000);
+}
+
+createPool();
+
+module.exports = { pool };

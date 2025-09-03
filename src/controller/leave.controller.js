@@ -1,5 +1,5 @@
 const { sendSuccess, sendError } = require("../utils/responses")
-const { getPendingLeaveRequestByUserId, createLeaveRequest, myUserPendingRequests, statusUpdate, getAvailability, leaveAvailabilityUpdate } = require("../model/LeaveModel")
+const { getPendingLeaveRequestByUserId, createLeaveRequest, myUserPendingRequests, statusUpdate, getAvailability, leaveAvailabilityUpdate, getLeaveRequestByEmployeeId } = require("../model/LeaveModel")
 const { getHolidayOnRange, getFloaterOnRange } = require("../model/HolidayModel")
 const { LEAVE_STATUS } = require('../utils/constants.js')
 const { response } = require("express")
@@ -124,7 +124,7 @@ const myUsersPendingRequests = async (req, res) => {
 const approveRequest = async (req, res) => {
     const { id: leave_request_id } = req.query
     try {
-        const resp = await statusUpdate(leave_request_id, LEAVE_STATUS.APPROVED)
+        const resp = await statusUpdate(leave_request_id, LEAVE_STATUS.APPROVED, "-")
 
         return sendSuccess(res, { data: resp })
     } catch (error) {
@@ -134,9 +134,12 @@ const approveRequest = async (req, res) => {
 
 const rejectRequest = async (req, res) => {
     const { id } = req.query
+    const { data } = req.body;
+    console.log(data);
+
     try {
 
-        const response = await statusUpdate(id, LEAVE_STATUS.REJECTED);
+        const response = await statusUpdate(id, LEAVE_STATUS.REJECTED, data);
 
         const employee_id = response.employee_id;
         const policy_id = response.policy_id;
@@ -154,9 +157,10 @@ const rejectRequest = async (req, res) => {
 
 const cancelRequest = async (req, res) => {
     const { id } = req.query
+    const { data } = req.body
     try {
 
-        const response = await statusUpdate(id, LEAVE_STATUS.CANCELLED);
+        const response = await statusUpdate(id, LEAVE_STATUS.CANCELLED, data);
 
         const employee_id = response.employee_id;
         const policy_id = response.policy_id;
@@ -173,6 +177,20 @@ const cancelRequest = async (req, res) => {
     }
 }
 
+const getMyleaveRequestHistory = async (req, res) => {
+    try {
+        const { id } = req.user
+
+        const response = await getLeaveRequestByEmployeeId(id);
+
+        if (response)
+            return sendSuccess(res, { data: response })
+
+    } catch (error) {
+        return sendError(res, error.message, 500)
+    }
+}
+
 module.exports = {
     getMyPendingRequests,
     newLeaveRequest,
@@ -181,5 +199,6 @@ module.exports = {
     myUsersPendingRequests,
     approveRequest,
     rejectRequest,
-    cancelRequest
+    cancelRequest,
+    getMyleaveRequestHistory
 }

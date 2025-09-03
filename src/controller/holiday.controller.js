@@ -1,4 +1,4 @@
-const { getAllHolidays } = require("../model/HolidayModel")
+const { getAllHolidays, insertHolidayBulk, insertHoliday, updateHoliday, deleteHoliday } = require("../model/HolidayModel")
 const { sendSuccess, sendError } = require("../utils/responses")
 
 const getHolidays = async (req, res) => {
@@ -23,4 +23,73 @@ const getHolidays = async (req, res) => {
     }
 }
 
-module.exports = { getHolidays }
+const addHolidaysBulk = async (req, res) => {
+    const { validHoliday, deletedHoliday, updatedHoliday } = req.body;
+
+    let inserted = 0;
+    let failed = 0;
+    let updated = 0;
+    let deleted = 0;
+
+    try {
+        if (validHoliday.length > 0) {
+            const insertResults = await Promise.all(
+                validHoliday.map(async (h) => {
+                    try {
+                        const result = await insertHoliday([h.date, h.description, h.is_floater]);
+                        if (result === "success") {
+                            inserted++;
+                        } else {
+                            failed++;
+                        }
+                    } catch (err) {
+                        failed++;
+                    }
+                })
+            );
+        }
+
+        if (updatedHoliday.length > 0) {
+            const updatedResult = await Promise.all(
+                updatedHoliday.map(async (h) => {
+                    try {
+                        const result = await updateHoliday(h);
+                        if (result === "success") {
+                            updated++;
+                        } else {
+                            failed++;
+                        }
+                    } catch (err) {
+                        failed++;
+                    }
+                })
+            );
+        }
+
+        if (deletedHoliday.length > 0) {
+            const deletedResult = await Promise.all(
+                deletedHoliday.map(async (h) => {
+                    try {
+                        const result = await deleteHoliday(h);
+                        if (result === "success") {
+                            deleted++;
+                        } else {
+                            failed++;
+                        }
+                    } catch (err) {
+                        failed++;
+                    }
+                })
+            );
+
+        }
+
+        return sendSuccess(res, { inserted, updated, deleted, failed });
+    } catch (error) {
+        return sendError(res, error.message, 500, error);
+    }
+};
+
+
+
+module.exports = { getHolidays, addHolidaysBulk }
