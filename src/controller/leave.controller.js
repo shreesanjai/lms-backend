@@ -1,5 +1,5 @@
 const { sendSuccess, sendError } = require("../utils/responses")
-const { getPendingLeaveRequestByUserId, createLeaveRequest, myUserPendingRequests, statusUpdate, getAvailability, leaveAvailabilityUpdate, getLeaveRequestByEmployeeId } = require("../model/LeaveModel")
+const { getPendingLeaveRequestByUserId, createLeaveRequest, myUserPendingRequests, statusUpdate, getAvailability, leaveAvailabilityUpdate, getLeaveRequestByEmployeeId, getSummaryData, getMonthlyLeaveStats, getWeeklyLeaveStats } = require("../model/LeaveModel")
 const { getHolidayOnRange, getFloaterOnRange } = require("../model/HolidayModel")
 const { LEAVE_STATUS } = require('../utils/constants.js')
 const { response } = require("express")
@@ -191,6 +191,28 @@ const getMyleaveRequestHistory = async (req, res) => {
     }
 }
 
+
+const leaveSummary = async (req, res) => {
+    try {
+        const { id } = req.user
+        const year = req.query.year || new Date().getFullYear()
+
+        const response = await getSummaryData(id, year);
+        const monthlyStats = await getMonthlyLeaveStats(id, year);
+        const weeklyStats = await getWeeklyLeaveStats(id, year);
+
+        if (response)
+            return sendSuccess(res, {
+                summary: response,
+                monthStat: monthlyStats,
+                weekstat: weeklyStats
+            })
+
+    } catch (error) {
+        return sendError(res, error.message, 500)
+    }
+}
+
 module.exports = {
     getMyPendingRequests,
     newLeaveRequest,
@@ -200,5 +222,6 @@ module.exports = {
     approveRequest,
     rejectRequest,
     cancelRequest,
-    getMyleaveRequestHistory
+    getMyleaveRequestHistory,
+    leaveSummary
 }

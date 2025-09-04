@@ -127,6 +127,144 @@ const getLeaveRequestByEmployeeId = async (employee_id) => {
     return resp.rows
 }
 
+const getSummaryData = async (employee_id, year) => {
+    const query = `
+    SELECT 
+        la.policy_id,
+        COALESCE(SUM(CASE WHEN lr.status = 'approved' THEN lr.no_of_days END), 0) AS consumed,
+        la.availability AS available,
+        la.total_allocted AS annual_quota,
+        p.leavename
+    FROM leave_availability la
+    LEFT JOIN policy p 
+        ON la.policy_id = p.id
+    LEFT JOIN leave_request lr 
+        ON la.policy_id = lr.policy_id
+       AND la.employee_id = lr.employee_id
+       AND lr.status = 'approved'
+       AND EXTRACT(YEAR FROM lr.startdate) = $2
+    WHERE la.employee_id = $1
+    GROUP BY la.policy_id, la.availability, la.total_allocted, p.leavename;
+  `;
+
+    const resp = await pool.query(query, [employee_id, year]);
+    return resp.rows;
+};
+
+const getMonthlyLeaveStats = async (employee_id, year) => {
+    const query = `
+    WITH employee_leaves AS (
+        SELECT 
+            lr.startdate,
+            lr.enddate,
+            lr.no_of_days
+        FROM leave_request lr
+        WHERE lr.employee_id = $1
+          AND lr.status = 'approved'
+          AND EXTRACT(YEAR FROM lr.startdate) = $2
+    ),
+    leave_date_series AS (
+        SELECT 
+            el.startdate,
+            el.enddate,
+            generate_series(el.startdate, el.enddate, '1 day'::interval)::date AS leave_date
+        FROM employee_leaves el
+    ),
+    monthly_leave_days AS (
+        SELECT 
+            EXTRACT(MONTH FROM lds.leave_date)::INT AS month,
+            COUNT(*) AS leave_consumed
+        FROM leave_date_series lds
+        WHERE EXTRACT(DOW FROM lds.leave_date) BETWEEN 1 AND 5  -- Only count weekdays (Mon-Fri)
+        GROUP BY EXTRACT(MONTH FROM lds.leave_date)
+    ),
+    monthly_floater_holidays AS (
+        SELECT 
+            EXTRACT(MONTH FROM h.date)::INT AS month,
+            COUNT(*) AS floater_holiday_count
+        FROM holiday h
+        WHERE EXTRACT(YEAR FROM h.date) = $2
+          AND EXTRACT(DOW FROM h.date) BETWEEN 1 AND 5  -- Monday to Friday only
+          AND h.is_floater = true
+          AND EXISTS (
+              SELECT 1 
+              FROM employee_leaves el
+              WHERE h.date BETWEEN el.startdate AND el.enddate
+          )
+        GROUP BY EXTRACT(MONTH FROM h.date)
+    ),
+    all_months AS (
+        SELECT generate_series(1, 12) AS month
+    )
+    SELECT 
+        am.month,
+        COALESCE(mld.leave_consumed, 0) + COALESCE(mfh.floater_holiday_count, 0) AS consumed
+    FROM all_months am
+    LEFT JOIN monthly_leave_days mld ON am.month = mld.month
+    LEFT JOIN monthly_floater_holidays mfh ON am.month = mfh.month
+    ORDER BY am.month;
+    `;
+    const resp = await pool.query(query, [employee_id, year]);
+    return resp.rows;
+};
+
+const getWeeklyLeaveStats = async (employee_id, year) => {
+    const query = `
+    WITH employee_leaves AS (
+        SELECT 
+            lr.startdate,
+            lr.enddate,
+            lr.no_of_days
+        FROM leave_request lr
+        WHERE lr.employee_id = $1
+          AND lr.status = 'approved'
+          AND EXTRACT(YEAR FROM lr.startdate) = $2
+    ),
+    leave_date_series AS (
+        SELECT 
+            el.startdate,
+            el.enddate,
+            generate_series(el.startdate, el.enddate, '1 day'::interval)::date AS leave_date
+        FROM employee_leaves el
+    ),
+    weekday_leave_days AS (
+        SELECT 
+            EXTRACT(DOW FROM lds.leave_date)::INT AS week,
+            COUNT(*) AS leave_consumed
+        FROM leave_date_series lds
+        WHERE EXTRACT(DOW FROM lds.leave_date) BETWEEN 1 AND 5  -- Only count weekdays (Mon-Fri)
+        GROUP BY EXTRACT(DOW FROM lds.leave_date)
+    ),
+    weekday_floater_holidays AS (
+        SELECT 
+            EXTRACT(DOW FROM h.date)::INT AS week,
+            COUNT(*) AS floater_holiday_count
+        FROM holiday h
+        WHERE EXTRACT(YEAR FROM h.date) = $2
+          AND EXTRACT(DOW FROM h.date) BETWEEN 1 AND 5  -- Only weekdays
+          AND h.is_floater = true
+          AND EXISTS (
+              SELECT 1 
+              FROM employee_leaves el
+              WHERE h.date BETWEEN el.startdate AND el.enddate
+          )
+        GROUP BY EXTRACT(DOW FROM h.date)
+    ),
+    all_weekdays AS (
+        SELECT generate_series(0, 6) AS week
+    )
+    SELECT 
+        aw.week,
+        COALESCE(wld.leave_consumed, 0) + COALESCE(wfh.floater_holiday_count, 0) AS consumed
+    FROM all_weekdays aw
+    LEFT JOIN weekday_leave_days wld ON aw.week = wld.week
+    LEFT JOIN weekday_floater_holidays wfh ON aw.week = wfh.week
+    ORDER BY aw.week;
+    `;
+    const resp = await pool.query(query, [employee_id, year]);
+    return resp.rows;
+};
+
 module.exports = {
     getPendingLeaveRequestByUserId,
     createLeaveRequest,
@@ -134,5 +272,8 @@ module.exports = {
     statusUpdate,
     leaveAvailabilityUpdate,
     getAvailability,
-    getLeaveRequestByEmployeeId
+    getLeaveRequestByEmployeeId,
+    getSummaryData,
+    getMonthlyLeaveStats,
+    getWeeklyLeaveStats
 };
