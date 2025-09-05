@@ -27,7 +27,7 @@ const createUser = async (user) => {
 
 // Get User by Manager Id 
 const getUserByManagerId = async (id) => {
-    const result = await pool.query(`SELECT id, name, username, role FROM employee WHERE reporting_manager_id = $1`, [id])
+    const result = await pool.query(`SELECT id, name, username, role, department FROM employee WHERE reporting_manager_id = $1`, [id])
     return result.rows
 }
 
@@ -102,7 +102,8 @@ module.exports = {
     getUserByManagerId,
     searchUsersQuery,
     getUserById,
-    updateUser
+    updateUser,
+
 }
 
 

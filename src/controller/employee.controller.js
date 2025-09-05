@@ -5,8 +5,9 @@ const {
     getUserByManagerId,
     searchUsersQuery,
     getUserById,
-    updateUser
+    updateUser,
 } = require("../model/employeeModel");
+const { getTeamLeaves } = require("../model/LeaveModel");
 
 const { sendError, sendSuccess } = require("../utils/responses");
 
@@ -122,10 +123,25 @@ const modifyUser = async (req, res) => {
     }
 }
 
+const myTeamLeave = async (req, res) => {
+    try {
+        const { id } = req.user;
+        const year = req.query.year || new Date().getFullYear()
+        const response = await getTeamLeaves(id, year);
+
+
+        return sendSuccess(res, { data: response })
+    } catch (error) {
+        return sendError(res, error.message, 500)
+    }
+}
+
 module.exports = {
     newUser,
     allUsers,
     getAllMyUsers,
     searchUsers,
     modifyUser,
+
+    myTeamLeave
 };

@@ -1,5 +1,5 @@
 const { sendSuccess, sendError } = require("../utils/responses")
-const { getPendingLeaveRequestByUserId, createLeaveRequest, myUserPendingRequests, statusUpdate, getAvailability, leaveAvailabilityUpdate, getLeaveRequestByEmployeeId, getSummaryData, getMonthlyLeaveStats, getWeeklyLeaveStats } = require("../model/LeaveModel")
+const { getPendingLeaveRequestByUserId, createLeaveRequest, myUserPendingRequests, statusUpdate, getAvailability, leaveAvailabilityUpdate, getLeaveRequestByEmployeeId, getSummaryData, getMonthlyLeaveStats, getWeeklyLeaveStats, getTeamLeaves } = require("../model/LeaveModel")
 const { getHolidayOnRange, getFloaterOnRange } = require("../model/HolidayModel")
 const { LEAVE_STATUS } = require('../utils/constants.js')
 const { response } = require("express")
@@ -135,7 +135,6 @@ const approveRequest = async (req, res) => {
 const rejectRequest = async (req, res) => {
     const { id } = req.query
     const { data } = req.body;
-    console.log(data);
 
     try {
 
@@ -144,7 +143,8 @@ const rejectRequest = async (req, res) => {
         const employee_id = response.employee_id;
         const policy_id = response.policy_id;
 
-        const getAvail = (await getAvailability(employee_id, policy_id)).availability;
+        const responsi = await getAvailability(employee_id, policy_id);
+        const getAvail = responsi.availability;
 
         const resp = await leaveAvailabilityUpdate(employee_id, policy_id, Number(response.no_of_days) + Number(getAvail))
 
@@ -157,7 +157,7 @@ const rejectRequest = async (req, res) => {
 
 const cancelRequest = async (req, res) => {
     const { id } = req.query
-    const { data } = req.body
+    const { data } = req.body || ""
     try {
 
         const response = await statusUpdate(id, LEAVE_STATUS.CANCELLED, data);
@@ -165,7 +165,8 @@ const cancelRequest = async (req, res) => {
         const employee_id = response.employee_id;
         const policy_id = response.policy_id;
 
-        const getAvail = (await getAvailability(employee_id, policy_id)).availability;
+        const responsi = await getAvailability(employee_id, policy_id);
+        const getAvail = responsi.availability;
 
         const resp = await leaveAvailabilityUpdate(employee_id, policy_id, Number(response.no_of_days) + Number(getAvail))
 
@@ -180,17 +181,17 @@ const cancelRequest = async (req, res) => {
 const getMyleaveRequestHistory = async (req, res) => {
     try {
         const { id } = req.user
+        const year = req.query.year || new Date().getFullYear()
 
-        const response = await getLeaveRequestByEmployeeId(id);
+        const response = await getLeaveRequestByEmployeeId(id, year);
 
-        if (response)
-            return sendSuccess(res, { data: response })
+
+        return sendSuccess(res, { data: response })
 
     } catch (error) {
         return sendError(res, error.message, 500)
     }
 }
-
 
 const leaveSummary = async (req, res) => {
     try {

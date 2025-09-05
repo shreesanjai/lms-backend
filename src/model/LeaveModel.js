@@ -103,7 +103,7 @@ const getAvailability = async (employee_id, policy_id) => {
     return resp.rows[0]
 }
 
-const getLeaveRequestByEmployeeId = async (employee_id) => {
+const getLeaveRequestByEmployeeId = async (employee_id, year) => {
     const resp = await pool.query(`
         SELECT 
             lr.*,
@@ -121,8 +121,10 @@ const getLeaveRequestByEmployeeId = async (employee_id) => {
         LEFT JOIN 
             employee m ON e.reporting_manager_id = m.id
         WHERE 
-            lr.employee_id = $1;
-        `, [employee_id])
+            lr.employee_id = $1 
+            AND EXTRACT(YEAR FROM lr.startdate) = $2
+        ORDER BY lr.startdate DESC;
+        `, [employee_id, year])
 
     return resp.rows
 }
@@ -265,6 +267,31 @@ const getWeeklyLeaveStats = async (employee_id, year) => {
     return resp.rows;
 };
 
+const getTeamLeaves = async (manager_id, year) => {
+    const query = `
+    SELECT 
+        lr.id AS leave_id,
+        e.name AS employee_name,
+        p.leavename,
+        to_char(lr.startdate::timestamptz AT TIME ZONE 'Asia/Calcutta', 'YYYY-MM-DD') AS startdate,
+        to_char(lr.enddate::timestamptz AT TIME ZONE 'Asia/Calcutta', 'YYYY-MM-DD') AS enddate,
+        lr.no_of_days
+    FROM leave_request lr
+    JOIN employee e 
+        ON lr.employee_id = e.id
+    JOIN policy p 
+        ON lr.policy_id = p.id
+    WHERE e.reporting_manager_id = $1
+      AND lr.status = 'approved'
+      AND EXTRACT(YEAR FROM lr.startdate) = $2
+    ORDER BY lr.startdate;
+  `;
+
+    const resp = await pool.query(query, [manager_id, year]);
+    return resp.rows;
+};
+
+
 module.exports = {
     getPendingLeaveRequestByUserId,
     createLeaveRequest,
@@ -275,5 +302,6 @@ module.exports = {
     getLeaveRequestByEmployeeId,
     getSummaryData,
     getMonthlyLeaveStats,
-    getWeeklyLeaveStats
+    getWeeklyLeaveStats,
+    getTeamLeaves
 };

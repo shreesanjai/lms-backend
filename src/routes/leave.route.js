@@ -10,7 +10,7 @@ const {
     rejectRequest,
     cancelRequest,
     getMyleaveRequestHistory,
-    leaveSummary
+    leaveSummary,
 } = require("../controller/leave.controller");
 
 
