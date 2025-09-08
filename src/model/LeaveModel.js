@@ -15,6 +15,11 @@ const createLeaveRequest = async (request) => {
 
 }
 
+const getLeaveRequestById = async (id) => {
+    const res = await pool.query(`SELECT * FROM leave_request WHERE id = $1`, [id])
+    return res.rows[0];
+}
+
 
 const getPendingLeaveRequestByUserId = async (id) => {
 
@@ -27,15 +32,17 @@ const getPendingLeaveRequestByUserId = async (id) => {
             e.username AS employee_username,
             m.name AS manager_name,
             m.username AS manager_username,
+            hr.name AS hr_name,
             p.leavename AS leave_type
         FROM leave_request l
         JOIN employee e ON e.id = l.employee_id
         LEFT JOIN employee m ON m.id = e.reporting_manager_id
+        LEFT JOIN employee hr ON hr.id = e.hr_id
         LEFT JOIN policy p ON l.policy_id = p.id
         WHERE 
             l.employee_id = $1
         AND 
-            l.status = 'pending';
+            l.status != 'approved';
     `, [id])
     return res.rows
 }
@@ -53,15 +60,40 @@ const myUserPendingRequests = async (id) => {
             leave_request lr
         LEFT JOIN 
             policy p ON lr.policy_id = p.id
-        JOIN 
+        LEFT JOIN 
             employee e ON lr.employee_id = e.id
         WHERE 
             e.reporting_manager_id = $1 
         AND 
             lr.status = 'pending'
+        ORDER BY lr.startdate ASC;
         `, [id])
     return res.rows
 }
+
+const myPeoplePendingRequests = async (id) => {
+    const res = await pool.query(`
+       SELECT 
+            lr.*,
+            to_char(lr.startdate::timestamptz AT TIME ZONE 'Asia/Calcutta', 'YYYY-MM-DD') AS startdate,
+            to_char(lr.enddate::timestamptz AT TIME ZONE 'Asia/Calcutta', 'YYYY-MM-DD') AS enddate,
+            p.leavename,
+            e.name,
+            e.username
+        FROM 
+            leave_request lr
+        LEFT JOIN 
+            policy p ON lr.policy_id = p.id
+        JOIN 
+            employee e ON lr.employee_id = e.id
+        WHERE 
+            e.hr_id = $1 
+        AND 
+            lr.status = 'partially_approved'
+        `, [id])
+    return res.rows
+}
+
 
 const statusUpdate = async (id, status, data) => {
     const res = await pool.query(`
@@ -111,7 +143,8 @@ const getLeaveRequestByEmployeeId = async (employee_id, year) => {
             to_char(lr.enddate::timestamptz AT TIME ZONE 'Asia/Calcutta', 'YYYY-MM-DD') AS enddate,
             p.leavename,
             e.name,
-            m.name as approver
+            m.name as approver,
+            hr.name as hr
         FROM 
             leave_request lr
         LEFT JOIN 
@@ -120,6 +153,8 @@ const getLeaveRequestByEmployeeId = async (employee_id, year) => {
             employee e ON e.id = lr.employee_id
         LEFT JOIN 
             employee m ON e.reporting_manager_id = m.id
+        LEFT JOIN 
+            employee hr ON e.hr_id = hr.id
         WHERE 
             lr.employee_id = $1 
             AND EXTRACT(YEAR FROM lr.startdate) = $2
@@ -291,6 +326,30 @@ const getTeamLeaves = async (manager_id, year) => {
     return resp.rows;
 };
 
+const getPeopleLeaves = async (manager_id, year) => {
+    const query = `
+    SELECT 
+        lr.id AS leave_id,
+        e.name AS employee_name,
+        p.leavename,
+        to_char(lr.startdate::timestamptz AT TIME ZONE 'Asia/Calcutta', 'YYYY-MM-DD') AS startdate,
+        to_char(lr.enddate::timestamptz AT TIME ZONE 'Asia/Calcutta', 'YYYY-MM-DD') AS enddate,
+        lr.no_of_days
+    FROM leave_request lr
+    JOIN employee e 
+        ON lr.employee_id = e.id
+    JOIN policy p 
+        ON lr.policy_id = p.id
+    WHERE e.hr_id = $1
+      AND lr.status = 'approved'
+      AND EXTRACT(YEAR FROM lr.startdate) = $2
+    ORDER BY lr.startdate;
+  `;
+
+    const resp = await pool.query(query, [manager_id, year]);
+    return resp.rows;
+};
+
 
 module.exports = {
     getPendingLeaveRequestByUserId,
@@ -303,5 +362,8 @@ module.exports = {
     getSummaryData,
     getMonthlyLeaveStats,
     getWeeklyLeaveStats,
-    getTeamLeaves
+    getTeamLeaves,
+    getLeaveRequestById,
+    myPeoplePendingRequests,
+    getPeopleLeaves
 };

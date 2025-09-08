@@ -6,15 +6,16 @@ const {
     searchUsersQuery,
     getUserById,
     updateUser,
+    getMyTeamHR,
 } = require("../model/employeeModel");
-const { getTeamLeaves } = require("../model/LeaveModel");
+const { getTeamLeaves, getPeopleLeaves } = require("../model/LeaveModel");
 
 const { sendError, sendSuccess } = require("../utils/responses");
 
 
 const newUser = async (req, res) => {
 
-    const { username, password, role, reporting_manager_id, name, department } = req.body;
+    const { username, password, role, reporting_manager_id, name, department, hr_id } = req.body;
 
     if (!(req.user.role === "HR" || req.user.role === "Admin"))
         return sendError(res, "Authorization Error", 401)
@@ -29,7 +30,8 @@ const newUser = async (req, res) => {
             department: department,
             password: password,
             role: role,
-            reporting_manager_id: reporting_manager_id
+            reporting_manager_id: reporting_manager_id,
+            hr_id: hr_id
         })
 
         return sendSuccess(res, {
@@ -65,9 +67,19 @@ const allUsers = async (req, res) => {
 
 const getAllMyUsers = async (req, res) => {
     try {
-        const result = await getUserByManagerId(req.user.id);
+        const { id, department } = req.user;
 
-        return sendSuccess(res, { data: result })
+
+        let hrResp = [];
+
+        if (department === "HR") {
+            hrResp = await getMyTeamHR(id);
+        }
+
+
+        const result = await getUserByManagerId(id);
+
+        return sendSuccess(res, { data: result, ...{ hrData: hrResp } })
     } catch (error) {
         return sendError(res, error.message, 500)
     }
@@ -83,7 +95,7 @@ const searchUsers = async (req, res) => {
 
         const result = await searchUsersQuery(query)
 
-        const resp = result.filter(item => item.department !== "ADMIN")
+        const resp = result.filter(item => (item.department !== "ADMIN" && item.department !== "INTERN"))
 
         return sendSuccess(res, { suggestions: resp })
 
@@ -94,7 +106,7 @@ const searchUsers = async (req, res) => {
 
 const modifyUser = async (req, res) => {
 
-    const { id, username, password, role, reporting_manager_id, name, department } = req.body;
+    const { id, username, password, role, reporting_manager_id, name, department, hr_id } = req.body;
 
 
     if (req.user.role !== "Admin")
@@ -109,7 +121,8 @@ const modifyUser = async (req, res) => {
             department: department,
             password: password,
             role: role,
-            reporting_manager_id: reporting_manager_id
+            reporting_manager_id: reporting_manager_id,
+            hr_id: hr_id
         })
 
         return sendSuccess(res, {
@@ -125,16 +138,21 @@ const modifyUser = async (req, res) => {
 
 const myTeamLeave = async (req, res) => {
     try {
-        const { id } = req.user;
-        const year = req.query.year || new Date().getFullYear()
-        const response = await getTeamLeaves(id, year);
+        const { id, department } = req.user;
+        const year = req.query.year || new Date().getFullYear();
 
+        let response = await getTeamLeaves(id, year);
 
-        return sendSuccess(res, { data: response })
+        if (department === "HR") {
+            const hrResponse = await getPeopleLeaves(id, year);
+            response = [...response.map(item => ({ ...item, team: true })), ...hrResponse.map(item => ({ ...item, team: false }))];
+        }
+
+        return sendSuccess(res, { data: response });
     } catch (error) {
-        return sendError(res, error.message, 500)
+        return sendError(res, error.message, 500);
     }
-}
+};
 
 module.exports = {
     newUser,
@@ -142,6 +160,5 @@ module.exports = {
     getAllMyUsers,
     searchUsers,
     modifyUser,
-
     myTeamLeave
 };

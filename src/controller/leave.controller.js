@@ -1,5 +1,5 @@
 const { sendSuccess, sendError } = require("../utils/responses")
-const { getPendingLeaveRequestByUserId, createLeaveRequest, myUserPendingRequests, statusUpdate, getAvailability, leaveAvailabilityUpdate, getLeaveRequestByEmployeeId, getSummaryData, getMonthlyLeaveStats, getWeeklyLeaveStats, getTeamLeaves } = require("../model/LeaveModel")
+const { getPendingLeaveRequestByUserId, createLeaveRequest, myUserPendingRequests, statusUpdate, getAvailability, leaveAvailabilityUpdate, getLeaveRequestByEmployeeId, getSummaryData, getMonthlyLeaveStats, getWeeklyLeaveStats, getTeamLeaves, getLeaveRequestById, myPeoplePendingRequests } = require("../model/LeaveModel")
 const { getHolidayOnRange, getFloaterOnRange } = require("../model/HolidayModel")
 const { LEAVE_STATUS } = require('../utils/constants.js')
 const { response } = require("express")
@@ -110,21 +110,34 @@ const isFloaterOnRange = async (req, res) => {
 }
 
 const myUsersPendingRequests = async (req, res) => {
-
     try {
-        const id = req.user.id;
-        const response = await myUserPendingRequests(id);
+        const { id, department } = req.user;
 
-        return sendSuccess(res, { data: response })
+        let response = await myUserPendingRequests(id);
+
+        if (department === "HR") {
+
+            const hrResponse = await myPeoplePendingRequests(id);
+            response = [...response, ...hrResponse];
+        }
+
+        return sendSuccess(res, { data: response });
     } catch (error) {
-
+        return sendError(res, error.message, 500, error);
     }
-}
+};
 
 const approveRequest = async (req, res) => {
     const { id: leave_request_id } = req.query
     try {
-        const resp = await statusUpdate(leave_request_id, LEAVE_STATUS.APPROVED, "-")
+
+        const leaveRequest = await getLeaveRequestById(leave_request_id);
+        var resp;
+
+        if (leaveRequest.status === LEAVE_STATUS.PARTIAL_APPROVE && req.user.department === "HR")
+            resp = await statusUpdate(leave_request_id, LEAVE_STATUS.APPROVED, "-")
+        else
+            resp = await statusUpdate(leave_request_id, LEAVE_STATUS.PARTIAL_APPROVE, "-")
 
         return sendSuccess(res, { data: resp })
     } catch (error) {

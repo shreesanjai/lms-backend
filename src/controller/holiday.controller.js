@@ -1,4 +1,4 @@
-const { getAllHolidays, insertHolidayBulk, insertHoliday, updateHoliday, deleteHoliday } = require("../model/HolidayModel")
+const { getAllHolidays, insertHoliday, updateHoliday, deleteHoliday } = require("../model/HolidayModel")
 const { sendSuccess, sendError } = require("../utils/responses")
 
 const getHolidays = async (req, res) => {

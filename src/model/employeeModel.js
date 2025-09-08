@@ -18,16 +18,21 @@ const getUserByUsername = async (id) => {
 //Create User
 const createUser = async (user) => {
     const result = await pool.query(`
-        INSERT INTO employee(username, name, department, role, password, reporting_manager_id)
+        INSERT INTO employee(username, name, department, role, password, reporting_manager_id, hr_id)
         VALUES
-        ($1, $2, $3, $4, $5, $6);
-        `, [user.username, user.name, user.department, user.role, user.password, user.reporting_manager_id])
+        ($1, $2, $3, $4, $5, $6, $7);
+        `, [user.username, user.name, user.department, user.role, user.password, user.reporting_manager_id, user.hr_id])
     return result;
 }
 
 // Get User by Manager Id 
 const getUserByManagerId = async (id) => {
     const result = await pool.query(`SELECT id, name, username, role, department FROM employee WHERE reporting_manager_id = $1`, [id])
+    return result.rows
+}
+
+const getMyTeamHR = async (id) => {
+    const result = await pool.query(`SELECT id, name, username, role, department FROM employee WHERE hr_id = $1`, [id])
     return result.rows
 }
 
@@ -62,7 +67,8 @@ const updateUser = async (user) => {
         "username = $2",
         "role = $3",
         "department = $4",
-        "reporting_manager_id = $5"
+        "reporting_manager_id = $5",
+        "hr_id = $6"
     ];
 
     const values = [
@@ -70,7 +76,8 @@ const updateUser = async (user) => {
         user.username,
         user.role,
         user.department,
-        user.reporting_manager_id
+        user.reporting_manager_id,
+        user.hr_id
     ];
 
     let paramIndex = values.length + 1;
@@ -103,7 +110,7 @@ module.exports = {
     searchUsersQuery,
     getUserById,
     updateUser,
-
+    getMyTeamHR
 }
 
 
