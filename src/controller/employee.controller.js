@@ -154,11 +154,42 @@ const myTeamLeave = async (req, res) => {
     }
 };
 
+const getTeamLeaveCalendar = async (req, res) => {
+    try {
+        const { fromDate, toDate } = req.query;
+        const { id } = req.user;
+
+        // Validate date parameters
+        if (!fromDate || !toDate) {
+            return sendError(res, "fromDate and toDate are required", 400);
+        }
+
+
+        const leaveRequests = (await getTeamLeaves(id, new Date(fromDate).getFullYear(), new Date(toDate).getMonth() + 1)).reduce((acc, current) => {
+            const emp = current.employee_name
+            if (!acc[emp])
+                acc[emp] = []
+            acc[emp].push(current);
+            return acc;
+        }, {})
+
+        return sendSuccess(res, {
+            data: leaveRequests
+        })
+
+    } catch (error) {
+
+        return sendError(res, error.message, 500);
+    }
+};
+
+
 module.exports = {
     newUser,
     allUsers,
     getAllMyUsers,
     searchUsers,
     modifyUser,
-    myTeamLeave
+    myTeamLeave,
+    getTeamLeaveCalendar
 };

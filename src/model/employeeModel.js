@@ -1,21 +1,20 @@
 
-// models/EmployeeModel.js
 const { pool } = require("../config/db.js");
 
-// Get all users
+
 const getAllUsers = async () => {
     const result = await pool.query("SELECT id,username,name,role,reporting_manager_id FROM employee");
     return result.rows;
 };
 
-// Get user by ID
+
 const getUserByUsername = async (id) => {
 
     const result = await pool.query("SELECT id,username,name,role,password,department FROM employee WHERE username = $1", [id]);
     return result.rows[0];
 };
 
-//Create User
+
 const createUser = async (user) => {
     const result = await pool.query(`
         INSERT INTO employee(username, name, department, role, password, reporting_manager_id, hr_id)
@@ -25,7 +24,7 @@ const createUser = async (user) => {
     return result;
 }
 
-// Get User by Manager Id 
+
 const getUserByManagerId = async (id) => {
     const result = await pool.query(`SELECT id, name, username, role, department FROM employee WHERE reporting_manager_id = $1`, [id])
     return result.rows
@@ -36,7 +35,7 @@ const getMyTeamHR = async (id) => {
     return result.rows
 }
 
-// Search User
+
 const searchUsersQuery = async (text) => {
     const result = await pool.query(`
         SELECT 
@@ -55,7 +54,7 @@ const searchUsersQuery = async (text) => {
 
 }
 
-// Get user by Id
+
 const getUserById = async (id) => {
     const result = await pool.query("SELECT * FROM employee WHERE id = $1 ", [id])
     return result.rows[0]

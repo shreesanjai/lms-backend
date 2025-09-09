@@ -13,4 +13,11 @@ const LEAVE_STATUS = {
   "PARTIAL_APPROVE": "partially_approved"
 };
 
-module.exports = { ROLES, LEAVE_STATUS }
+const CRON_INTERVAL = {
+  "PER_MONTH": "MONTHLY",
+  "PER_QUARTER": "QUARTERLY",
+  "PER_YEAR": "ANNUALLY",
+
+}
+
+module.exports = { ROLES, LEAVE_STATUS, CRON_INTERVAL }

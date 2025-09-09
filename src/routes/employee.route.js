@@ -5,7 +5,8 @@ const {
     getAllMyUsers,
     searchUsers,
     modifyUser,
-    myTeamLeave
+    myTeamLeave,
+    getTeamLeaveCalendar
 } = require("../controller/employee.controller");
 
 const { verifyToken } = require("../middleware/Authentication");
@@ -19,5 +20,6 @@ router.put('/', verifyToken, modifyUser)
 router.get('/myusers', verifyToken, getAllMyUsers)
 router.get('/search', verifyToken, searchUsers)
 router.get('/team-summary', verifyToken, myTeamLeave)
+router.get('/teamleavecalendar', verifyToken, getTeamLeaveCalendar)
 
 module.exports = router

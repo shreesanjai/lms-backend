@@ -11,8 +11,8 @@ function createPool() {
         database: process.env.PG_DATABASE,
         user: process.env.PG_USER,
         password: process.env.PG_PASSWORD,
-        idleTimeoutMillis: 30000, // close idle clients after 30s
-        connectionTimeoutMillis: 5000, // timeout if can’t connect in 5s
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 5000,
     });
 
     pool.on("connect", () => {

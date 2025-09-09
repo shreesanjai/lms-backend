@@ -1,6 +1,5 @@
 
 
-// models/LeaveModel.js
 const { pool } = require("../config/db.js");
 
 
@@ -19,7 +18,6 @@ const getLeaveRequestById = async (id) => {
     const res = await pool.query(`SELECT * FROM leave_request WHERE id = $1`, [id])
     return res.rows[0];
 }
-
 
 const getPendingLeaveRequestByUserId = async (id) => {
 
@@ -94,7 +92,6 @@ const myPeoplePendingRequests = async (id) => {
     return res.rows
 }
 
-
 const statusUpdate = async (id, status, data) => {
     const res = await pool.query(`
         UPDATE 
@@ -108,31 +105,6 @@ const statusUpdate = async (id, status, data) => {
         RETURNING *
             `, [id, status, data])
     return res.rows[0]
-}
-
-const leaveAvailabilityUpdate = async (employee_id, policy_id, availability) => {
-    const res = await pool.query(`
-        UPDATE 
-            leave_availability
-        SET 
-            availability = $3
-        WHERE 
-            employee_id = $1 
-        AND
-            policy_id = $2
-        RETURNING *
-    `, [employee_id, policy_id, availability])
-    return res.rows[0]
-}
-
-const getAvailability = async (employee_id, policy_id) => {
-    const resp = await pool.query(`
-        SELECT availability from leave_availability 
-        WHERE 
-        employee_id = $1 AND policy_id = $2
-        `, [employee_id, policy_id])
-
-    return resp.rows[0]
 }
 
 const getLeaveRequestByEmployeeId = async (employee_id, year) => {
@@ -302,36 +274,58 @@ const getWeeklyLeaveStats = async (employee_id, year) => {
     return resp.rows;
 };
 
-const getTeamLeaves = async (manager_id, year) => {
+const getTeamLeaves = async (manager_id, year, month = null) => {
+
+    console.log(manager_id, year, month);
+
+    const params = [manager_id, year];
+    let monthFilter = "";
+
+    if (month !== null) {
+        params.push(month);
+        monthFilter = "AND EXTRACT(MONTH FROM lr.startdate) = $3";
+    }
+
     const query = `
     SELECT 
         lr.id AS leave_id,
         e.name AS employee_name,
         p.leavename,
+        p.id as calendarDayStatus,
         to_char(lr.startdate::timestamptz AT TIME ZONE 'Asia/Calcutta', 'YYYY-MM-DD') AS startdate,
         to_char(lr.enddate::timestamptz AT TIME ZONE 'Asia/Calcutta', 'YYYY-MM-DD') AS enddate,
         lr.no_of_days
     FROM leave_request lr
-    JOIN employee e 
+    LEFT JOIN employee e 
         ON lr.employee_id = e.id
-    JOIN policy p 
+    LEFT JOIN policy p 
         ON lr.policy_id = p.id
-    WHERE e.reporting_manager_id = $1
+    WHERE e.reporting_manager_id = $1 OR e.id = $1
       AND lr.status = 'approved'
       AND EXTRACT(YEAR FROM lr.startdate) = $2
+      ${monthFilter}
     ORDER BY lr.startdate;
   `;
 
-    const resp = await pool.query(query, [manager_id, year]);
+    const resp = await pool.query(query, params);
     return resp.rows;
 };
 
-const getPeopleLeaves = async (manager_id, year) => {
+const getPeopleLeaves = async (manager_id, year, month = null) => {
+    const params = [manager_id, year];
+    let monthFilter = "";
+
+    if (month !== null) {
+        params.push(month);
+        monthFilter = "AND EXTRACT(MONTH FROM lr.startdate) = $3";
+    }
+
     const query = `
     SELECT 
         lr.id AS leave_id,
         e.name AS employee_name,
         p.leavename,
+        p.id as calendarDayStatus,
         to_char(lr.startdate::timestamptz AT TIME ZONE 'Asia/Calcutta', 'YYYY-MM-DD') AS startdate,
         to_char(lr.enddate::timestamptz AT TIME ZONE 'Asia/Calcutta', 'YYYY-MM-DD') AS enddate,
         lr.no_of_days
@@ -343,12 +337,102 @@ const getPeopleLeaves = async (manager_id, year) => {
     WHERE e.hr_id = $1
       AND lr.status = 'approved'
       AND EXTRACT(YEAR FROM lr.startdate) = $2
+      ${monthFilter}
     ORDER BY lr.startdate;
   `;
 
-    const resp = await pool.query(query, [manager_id, year]);
+    const resp = await pool.query(query, params);
     return resp.rows;
 };
+
+
+
+const leaveAvailabilityUpdate = async (employee_id, policy_id, availability) => {
+    const res = await pool.query(`
+        UPDATE 
+            leave_availability
+        SET 
+            availability = $3
+        WHERE 
+            employee_id = $1 
+        AND
+            policy_id = $2
+        RETURNING *
+    `, [employee_id, policy_id, availability])
+    return res.rows[0]
+}
+
+const getAvailability = async (employee_id, policy_id) => {
+    const resp = await pool.query(`
+        SELECT availability from leave_availability 
+        WHERE 
+        employee_id = $1 AND policy_id = $2
+        `, [employee_id, policy_id])
+
+    return resp.rows[0]
+}
+
+const updateLeaveAvailability = async (policy) => {
+
+    const placeHolder = yearUpdate ? "$3" : "COALESCE(total_allocted, 0)"
+
+    const resp = await pool.query(` 
+        UPDATE public.leave_availability 
+        SET 
+            availability = CASE 
+                WHEN $2 = true THEN                                   -- rollover is true
+                    CASE 
+                        WHEN COALESCE(availability, 0) <= $3 THEN     -- current availability <= rolloverlimit
+                            COALESCE(availability, 0) + $4            -- current availability + accural_quantity
+                        ELSE 
+                            $3 + $4                                   -- rolloverlimit + accural_quantity
+                    END
+                ELSE 
+                    $4                                                -- rollover is false, set to accural_quantity only
+            END,
+            total_allocted = ${placeHolder} + $4         -- always add accural_quantity to total_allocated
+        WHERE policy_id = $1
+        RETURNING employee_id, policy_id, availability, total_allocted;
+        `, [policy.id, policy.rollover, policy.rolloverlimit, policy.accural_quantity])
+
+    return resp.rows
+
+}
+const updateLeaveAvailabilityYear = async (policy) => {
+
+
+    const resp = await pool.query(` 
+        UPDATE public.leave_availability 
+        SET 
+            availability = CASE 
+                WHEN $2 = true THEN                                   -- rollover is true
+                    CASE 
+                        WHEN COALESCE(availability, 0) <= $3 THEN     -- current availability <= rolloverlimit
+                            COALESCE(availability, 0) + $4            -- current availability + accural_quantity
+                        ELSE 
+                            $3 + $4                                   -- rolloverlimit + accural_quantity
+                    END
+                ELSE 
+                    $4                                                -- rollover is false, set to accural_quantity only
+            END,
+            total_allocted = CASE 
+                WHEN $2 = true THEN                                   -- rollover is true
+                    CASE 
+                        WHEN COALESCE(availability, 0) <= $3 THEN     -- current availability <= rolloverlimit
+                            COALESCE(availability, 0) + $4            -- current availability + accural_quantity
+                        ELSE 
+                            $3 + $4                                   -- rolloverlimit + accural_quantity
+                    END
+                ELSE 
+                    $4                                                -- rollover is false, set to accural_quantity only
+            END        -- always add accural_quantity to total_allocated
+        WHERE policy_id = $1
+        RETURNING employee_id, policy_id, availability, total_allocted;
+        `, [policy.id, policy.rollover, policy.rolloverlimit, policy.accural_quantity])
+
+    return resp.rows
+
+}
 
 
 module.exports = {
@@ -365,5 +449,7 @@ module.exports = {
     getTeamLeaves,
     getLeaveRequestById,
     myPeoplePendingRequests,
-    getPeopleLeaves
+    getPeopleLeaves,
+    updateLeaveAvailability,
+    updateLeaveAvailabilityYear
 };

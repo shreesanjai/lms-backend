@@ -18,4 +18,19 @@ const getAllPolicybyUserId = async (id) => {
     return resp.rows;
 }
 
-module.exports = { getAllPolicybyUserId }
+const getPolicyByInterval = async (intervals) => {
+
+
+
+    const resp = await pool.query(`
+        SELECT 
+            id, rolloverlimit, rollover, accural_quantity, leavename
+        FROM 
+            policy
+        WHERE 
+            accural_interval = ANY($1)
+        `, [intervals])
+    return resp.rows
+}
+
+module.exports = { getAllPolicybyUserId, getPolicyByInterval }

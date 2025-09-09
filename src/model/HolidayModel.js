@@ -39,6 +39,7 @@ const insertHoliday = async (values) => {
         return "error";
     }
 }
+
 const updateHoliday = async (values) => {
     try {
         const res = await pool.query(`
@@ -57,6 +58,7 @@ const updateHoliday = async (values) => {
         return "error";
     }
 }
+
 const deleteHoliday = async (values) => {
     try {
         const res = await pool.query(`

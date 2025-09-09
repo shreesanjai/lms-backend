@@ -12,6 +12,10 @@ const dotenv = require('dotenv')
 const cors = require('cors');
 const { errorHandler } = require("./middleware/errorHandler");
 
+require("./cron/AnnualScheduler")
+require("./cron/MontlyScheduler")
+require("./cron/QuarterlyScheduler")
+
 dotenv.config();
 const app = express()
 
