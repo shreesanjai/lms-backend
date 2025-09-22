@@ -1,18 +1,12 @@
 const cron = require("node-cron");
 const { CRON_INTERVAL } = require("../utils/constants");
 const { getPolicyByInterval } = require("../model/PolicyModel");
-const { updateLeaveAvailability, updateLeaveAvailabilityYear } = require("../model/LeaveModel");
+const { updateLeaveAvailabilityYear } = require("../model/LeaveModel");
 
 const annuallyScheduleTask = async () => {
 
     try {
-
-        console.log(Object.entries(CRON_INTERVAL).map(item => item[1]));
-
         const policies = await getPolicyByInterval(Object.entries(CRON_INTERVAL).map(item => item[1]))
-
-        console.log(policies);
-
 
         policies.forEach(async (element) => {
             console.log(element);
@@ -23,8 +17,6 @@ const annuallyScheduleTask = async () => {
                 console.log(element.leavename + " Error");
 
         });
-
-
 
     } catch (error) {
         console.error("Yearly CRON Error : " + error);

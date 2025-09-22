@@ -7,7 +7,8 @@ const getAllPolicybyUserId = async (id) => {
             p.id, 
             p.leavename,
             l.availability,
-            p.applicationrule
+            p.applicationrule,
+            p.notes
         FROM 
             policy p 
         LEFT JOIN 
@@ -19,8 +20,6 @@ const getAllPolicybyUserId = async (id) => {
 }
 
 const getPolicyByInterval = async (intervals) => {
-
-
 
     const resp = await pool.query(`
         SELECT 

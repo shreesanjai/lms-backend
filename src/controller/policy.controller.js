@@ -6,7 +6,7 @@ const getPolicyNames = async (req, res) => {
     try {
         const id = req.user.id
         const response = await getAllPolicybyUserId(id);
-        return sendSuccess(res, { data: response })
+        return sendSuccess(res, { data: response.map(item => ({...item,notes : item.notes.split(',')}))})
     } catch (error) {
         return sendError(res, error.message, 500)
     }
